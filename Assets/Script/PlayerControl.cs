@@ -11,11 +11,17 @@ public class PlayerControl : MonoBehaviour
     bool isGrounded;
     public LayerMask groundMask;
 
+    bool isSprint;
+    bool isCrouch;
+
     Vector3 move;
     Vector3 input;
 
     float speed;
     public float runSpeed;
+    public float sprintSpeed;
+    public float crouchSpeed;
+    public float airSpeed;
 
     float gravity;
     public float normalGravity;
@@ -24,17 +30,32 @@ public class PlayerControl : MonoBehaviour
     public float jumpHeight;
     int multiJump;
 
+    float startHeight;
+    float crouchHeight = 0.5f;
+    Vector3 crouchingCenter = new Vector3(0, 0.5f, 0);
+    Vector3 standingCenter = new Vector3(0, 0, 0);
+
     // Start is called before the first frame update
     void Start()
     {
         controller = GetComponent<CharacterController>();
+        startHeight = transform.localScale.y;
     }
 
     // Update is called once per frame
     void Update()
     {
         HandleInput();
-        GroundMove();
+
+        if (isGrounded)
+        {
+            GroundMove();
+        }
+        else
+        {
+            AirMove();
+        }
+
         controller.Move(move * Time.deltaTime);
         checkGround();
         GravityExist();
@@ -47,15 +68,33 @@ public class PlayerControl : MonoBehaviour
         input = transform.TransformDirection(input);
         input = Vector3.ClampMagnitude(input, 1f);
 
-        if(Input.GetKeyUp(KeyCode.Space) && multiJump > 0)
+        if(Input.GetKeyDown(KeyCode.Space) && multiJump > 0)
         {
             Jump();
+        }
+
+        if(Input.GetKeyDown(KeyCode.LeftControl))
+        {
+            Crouch();
+        }
+        if(Input.GetKeyUp(KeyCode.LeftControl))
+        {
+            ExitCrouch();
+        }
+
+        if(Input.GetKeyDown(KeyCode.LeftShift) && isGrounded)
+        {
+            isSprint = true;
+        }
+        if(Input.GetKeyUp(KeyCode.LeftShift))
+        {
+            isSprint = false;
         }
     }
 
     void GroundMove()
     {
-        speed = runSpeed;
+        speed = isSprint ? sprintSpeed : isCrouch ? crouchSpeed : runSpeed;
         if(input.x !=0)
         {
             move.x += input.x * speed;
@@ -83,6 +122,10 @@ public class PlayerControl : MonoBehaviour
         {
             multiJump = 1;
         }
+        else
+        {
+            multiJump = 0;
+        }
     }
 
     void Jump()
@@ -95,5 +138,29 @@ public class PlayerControl : MonoBehaviour
         gravity = normalGravity;
         Yvelocity.y += gravity * Time.deltaTime;
         controller.Move(Yvelocity * Time.deltaTime);
+    }
+
+    void AirMove()
+    {
+        move.x += input.x * airSpeed;
+        move.z += input.z * airSpeed;
+
+        move = Vector3.ClampMagnitude(move, speed);
+    }
+
+    void Crouch()
+    {
+        controller.height = crouchHeight;
+        controller.center = crouchingCenter;
+        transform.localScale = new Vector3(transform.localScale.x, crouchHeight, transform.localScale.z);
+        isCrouch = true;
+    }
+
+    void ExitCrouch()
+    {
+        controller.height = (startHeight * 2);
+        controller.center = standingCenter;
+        transform.localScale = new Vector3(transform.localScale.x, startHeight, transform.localScale.z);
+        isCrouch = false;
     }
 }
