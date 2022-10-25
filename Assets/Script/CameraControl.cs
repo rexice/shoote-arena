@@ -11,6 +11,7 @@ public class CameraControl : MonoBehaviour
     public float sensitivity;
 
     public Camera cam;
+    PlayerControl move;
 
     float rotaX = 0f;
 
@@ -21,6 +22,8 @@ public class CameraControl : MonoBehaviour
     {
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
+
+        move = GetComponent<PlayerControl>();
     }
 
     // Update is called once per frame
@@ -37,6 +40,6 @@ public class CameraControl : MonoBehaviour
         rotaX = Mathf.Clamp(rotaX, minX, maxX);
 
         transform.localEulerAngles = new Vector3(0, rotaY, 0);
-        cam.transform.localEulerAngles = new Vector3(-rotaX, 0, 0);
+        cam.transform.localEulerAngles = new Vector3(-rotaX, 0, move.tilt);
     }
 }
