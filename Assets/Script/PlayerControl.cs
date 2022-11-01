@@ -6,37 +6,56 @@ public class PlayerControl : MonoBehaviour
 {
     CharacterController controller;
 
+    [Header("Camera")]
+    public Camera playerCamera;
+    float normalFov;
+    public float specialFov;
+    public float cameraChangeTime;
+    public float wallRunTilt;
+    public float tilt;
+
+    [Header("Movement")]
+    Vector3 move;
+    Vector3 input;
+    float speed;
+    public float runSpeed;
+    public float sprintSpeed;
+    bool isSprint;
+
+    [Header("Checks")]
     public Transform groundCheck;
     public float checkRange = 0.2f;
     bool isGrounded;
     public LayerMask groundMask;
     public LayerMask wallMask;
 
-    bool isSprint;
-    bool isCrouch;
-    bool isSlide;
-    bool isWallrun;
-
-    Vector3 move;
-    Vector3 input;
-
-    float speed;
-    public float runSpeed;
-    public float sprintSpeed;
-    public float crouchSpeed;
-    public float airSpeed;
-
+    [Header("Jump")]
     float gravity;
     public float normalGravity;
     public float wallRunGravity;
     Vector3 Yvelocity;
+    public float jumpHeight;
+    int multiJump;
+    public float airSpeed;
 
+    [Header("Crouch")]
+    bool isCrouch;
+    public float crouchSpeed;
+    float startHeight;
+    float crouchHeight = 0.5f;
+    Vector3 crouchingCenter = new Vector3(0, 0.5f, 0);
+    Vector3 standingCenter = new Vector3(0, 0, 0);
+
+    [Header("Slide")]
     Vector3 forwardDirection;
+    bool isSlide;
     float slideTimer;
     public float maxSlideTime;
     public float slideSpeedIncrease;
     public float slideSpeedDecrease;
 
+    [Header("Wallrun")]
+    bool isWallrun;
     public float wallSpeedIncrease;
     public float wallSpeedDecrease;
     bool leftWall;
@@ -47,23 +66,20 @@ public class PlayerControl : MonoBehaviour
     Vector3 wallNormal;
     Vector3 lastWallNormal;
 
-    public float jumpHeight;
-    int multiJump;
+    [Header("Wall Jump")]
+    bool isWallJump;
+    float wallJumpTimer;
+    public float maxWalljumpTimer;
 
-    float startHeight;
-    float crouchHeight = 0.5f;
-    Vector3 crouchingCenter = new Vector3(0, 0.5f, 0);
-    Vector3 standingCenter = new Vector3(0, 0, 0);
+    [Header("Climbing")]
+    public float climbSpeed;
+    bool isClimb;
+    bool canClimb;
+    bool hasClimb;
+    RaycastHit wallHit;
+    float climbTimer;
+    public float maxClimbTimer;
 
-    public Camera playerCamera;
-    float normalFov;
-    public float specialFov;
-    public float cameraChangeTime;
-    public float wallRunTilt;
-    public float tilt;
-    
-
-    // Start is called before the first frame update
     void Start()
     {
         controller = GetComponent<CharacterController>();
@@ -81,29 +97,6 @@ public class PlayerControl : MonoBehaviour
         speed -= speedDecrease * Time.deltaTime;
     }
 
-    void CameraEfects()
-    {
-        float fov = isWallrun ? specialFov : isSlide ? specialFov : normalFov;
-        playerCamera.fieldOfView = Mathf.Lerp(playerCamera.fieldOfView, fov, cameraChangeTime * Time.deltaTime);
-
-        if(isWallrun)
-        {
-            if(rightWall)
-            {
-                tilt = Mathf.Lerp(tilt, wallRunTilt, cameraChangeTime * Time.deltaTime);
-            }
-            if(leftWall)
-            {
-                tilt = Mathf.Lerp(tilt, -wallRunTilt, cameraChangeTime * Time.deltaTime);
-            }
-        }
-
-        if(!isWallrun)
-        {
-            tilt = Mathf.Lerp(tilt, 0f, cameraChangeTime * Time.deltaTime);
-        }
-    }
-
     // Update is called once per frame
     void Update()
     {
@@ -111,11 +104,13 @@ public class PlayerControl : MonoBehaviour
 
         CheckWalls();
 
+        CheckClimb();
+
         if (isGrounded && !isSlide)
         {
             GroundMove();
         }
-        else if (!isGrounded && !isWallrun)
+        else if (!isGrounded && !isWallrun && !isClimb)
         {
             AirMove();
         }
@@ -134,21 +129,38 @@ public class PlayerControl : MonoBehaviour
             WallRunMove();
             DecreaseSpeed(wallSpeedDecrease);
         }
+        else if (isClimb)
+        {
+            ClimbMove();
+            climbTimer -= 1f * Time.deltaTime;
+            if(climbTimer < 0)
+            {
+                isClimb = false;
+                hasClimb = true;
+            }
+        }
 
         controller.Move(move * Time.deltaTime);
-        checkGround();
         GravityExist();
         CameraEfects();
+    }
+
+    void FixedUpdate()
+    {
+        checkGround();
     }
 
     void HandleInput()
     {
         input = new Vector3(Input.GetAxisRaw("Horizontal"), 0f, Input.GetAxisRaw("Vertical"));
 
-        input = transform.TransformDirection(input);
-        input = Vector3.ClampMagnitude(input, 1f);
+        if (!isWallrun)
+        {
+            input = transform.TransformDirection(input);
+            input = Vector3.ClampMagnitude(input, 1f);
+        }
 
-        if(Input.GetKeyDown(KeyCode.Space) && multiJump > 0)
+        if (Input.GetKeyDown(KeyCode.Space) && multiJump > 0)
         {
             Jump();
         }
@@ -202,6 +214,8 @@ public class PlayerControl : MonoBehaviour
         {
             multiJump = 1;
             hasWallRun = false;
+            hasClimb = false;
+            climbTimer = maxClimbTimer;
         }
         else
         {
@@ -218,14 +232,16 @@ public class PlayerControl : MonoBehaviour
         else if(isWallrun)
         {
             ExitWallRun();
-            IncreaseSpeed(wallSpeedIncrease);
         }
         Yvelocity.y = Mathf.Sqrt(jumpHeight * -2f * normalGravity);
+
+        hasClimb = false;
+        climbTimer = maxClimbTimer;
     }
 
     void GravityExist()
     {
-        gravity = isWallrun ? wallRunGravity : normalGravity;
+        gravity = isWallrun ? wallRunGravity : isClimb ? 0f : normalGravity;
         Yvelocity.y += gravity * Time.deltaTime;
         controller.Move(Yvelocity * Time.deltaTime);
     }
@@ -234,6 +250,16 @@ public class PlayerControl : MonoBehaviour
     {
         move.x += input.x * airSpeed;
         move.z += input.z * airSpeed;
+
+        if(isWallJump)
+        {
+            move += forwardDirection * airSpeed;
+            wallJumpTimer -= 1f * Time.deltaTime;
+            if (wallJumpTimer <= 0)
+            {
+                isWallJump = false;
+            }
+        }
 
         move = Vector3.ClampMagnitude(move, speed);
     }
@@ -275,8 +301,8 @@ public class PlayerControl : MonoBehaviour
 
     void CheckWalls()
     {
-        leftWall = Physics.Raycast(transform.position, -transform.right, out leftWallHit, 0.7f, wallMask);
         rightWall = Physics.Raycast(transform.position, transform.right, out rightWallHit, 0.7f, wallMask);
+        leftWall = Physics.Raycast(transform.position, -transform.right, out leftWallHit, 0.7f, wallMask);
 
         if ((rightWall || leftWall) && !isWallrun)
         {
@@ -288,26 +314,15 @@ public class PlayerControl : MonoBehaviour
         }
     }
 
-    void WallRun()
-    {
-        isWallrun = true;
-        multiJump = 1;
-        IncreaseSpeed(wallSpeedIncrease);
-        Yvelocity = new Vector3(0f, 0f, 0f);
-
-        forwardDirection = Vector3.Cross(wallNormal, Vector3.up);
-
-        if(Vector3.Dot(forwardDirection, transform.forward) < 0)
-        {
-            forwardDirection = -forwardDirection;
-        }
-
-    }
-
     void ExitWallRun()
     {
         isWallrun = false;
         lastWallNormal = wallNormal;
+        IncreaseSpeed(wallSpeedIncrease);
+        forwardDirection = wallNormal;
+        isWallJump = true;
+        wallJumpTimer = maxWalljumpTimer;
+        //tilt = Mathf.Lerp(tilt, 0f, cameraChangeTime * Time.deltaTime);
     }
 
     void WallRunMove()
@@ -318,8 +333,8 @@ public class PlayerControl : MonoBehaviour
         }
         else if (input.z < (forwardDirection.z - 10f) && input.z > (forwardDirection.z + 10f))
         {
-            move.x += 0f;
-            move.z += 0f;
+            move.x += 0;
+            move.z += 0;
             ExitWallRun();
         }
 
@@ -344,5 +359,83 @@ public class PlayerControl : MonoBehaviour
             WallRun();
             hasWallRun = true;
         }
+    }
+    void WallRun()
+    {
+        isWallrun = true;
+        multiJump = 1;
+        IncreaseSpeed(wallSpeedIncrease);
+        Yvelocity = new Vector3(0f, 0f, 0f);
+
+        forwardDirection = Vector3.Cross(wallNormal, Vector3.up);
+
+        if (Vector3.Dot(forwardDirection, transform.forward) < 0)
+        {
+            forwardDirection = -forwardDirection;
+        }
+
+    }
+
+    void CheckClimb()
+    {
+        canClimb = Physics.Raycast(transform.position, transform.forward, out wallHit, 0.7f, wallMask);
+        float wallAngle = Vector3.Angle(-wallHit.normal, transform.forward);
+        if(wallAngle < 15 && !hasClimb && canClimb)
+        {
+            isClimb = true;
+        }
+        else
+        {
+            isClimb = false;
+        }
+    }
+
+    void ClimbMove()
+    {
+        forwardDirection = Vector3.up;
+        move.x += input.x * airSpeed;
+        move.z += input.z * airSpeed;
+
+        Yvelocity += forwardDirection;
+        speed = climbSpeed;
+
+        move = Vector3.ClampMagnitude(move, speed);
+        Yvelocity = Vector3.ClampMagnitude(Yvelocity, speed);
+    }
+
+    void CameraEfects()
+    {
+        float fov = isWallrun ? specialFov : isSlide ? specialFov : normalFov;
+        playerCamera.fieldOfView = Mathf.Lerp(playerCamera.fieldOfView, fov, cameraChangeTime * Time.deltaTime);
+
+        /*if (isWallrun)
+        {
+            if (rightWall)
+            {
+                tilt = Mathf.Lerp(tilt, wallRunTilt, cameraChangeTime * Time.deltaTime);
+            }
+            if (leftWall)
+            {
+                tilt = Mathf.Lerp(tilt, -wallRunTilt, cameraChangeTime * Time.deltaTime);
+            }
+        }*/
+
+        if (rightWall)
+        {
+            tilt = Mathf.Lerp(tilt, wallRunTilt, cameraChangeTime * Time.deltaTime);
+        }
+        if (leftWall)
+        {
+            tilt = Mathf.Lerp(tilt, -wallRunTilt, cameraChangeTime * Time.deltaTime);
+        }
+        else
+        {
+            tilt = Mathf.Lerp(tilt, 0f, cameraChangeTime * Time.deltaTime);
+        }
+
+        /*if (!isWallrun)
+        {
+            tilt = Mathf.Lerp(tilt, 0f, cameraChangeTime * Time.deltaTime);
+        }*/
     }
 }

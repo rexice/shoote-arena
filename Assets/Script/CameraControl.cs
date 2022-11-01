@@ -5,17 +5,15 @@ using UnityEngine;
 public class CameraControl : MonoBehaviour
 {
     public float maxX = 60f;
-
     public float minX = -60f;
-
     public float sensitivity;
 
     public Camera cam;
-    PlayerControl move;
 
     float rotaX = 0f;
-
     float rotaY = 0f;
+
+    PlayerControl move;
 
     // Start is called before the first frame update
     void Start()
