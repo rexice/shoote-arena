@@ -15,42 +15,42 @@ public class PlayerControl : MonoBehaviour
     public float tilt;
 
     [Header("Movement")]
+    public float runSpeed;
+    public float sprintSpeed;
     Vector3 move;
     Vector3 input;
     float speed;
-    public float runSpeed;
-    public float sprintSpeed;
     bool isSprint;
 
     [Header("Checks")]
+    public LayerMask groundMask;
+    public LayerMask wallMask;
     public Transform groundCheck;
     public float checkRange = 0.2f;
     bool isGrounded;
-    public LayerMask groundMask;
-    public LayerMask wallMask;
 
     [Header("Jump")]
-    float gravity;
     public float normalGravity;
     public float wallRunGravity;
+    float gravity;
     Vector3 Yvelocity;
     public float jumpHeight;
     int multiJump;
     public float airSpeed;
 
     [Header("Crouch")]
-    bool isCrouch;
     public float crouchSpeed;
+    bool isCrouch;
     float startHeight;
     float crouchHeight = 0.5f;
     Vector3 crouchingCenter = new Vector3(0, 0.5f, 0);
     Vector3 standingCenter = new Vector3(0, 0, 0);
 
     [Header("Slide")]
+    public float maxSlideTime;
     Vector3 forwardDirection;
     bool isSlide;
     float slideTimer;
-    public float maxSlideTime;
     public float slideSpeedIncrease;
     public float slideSpeedDecrease;
 
